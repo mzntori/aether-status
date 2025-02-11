@@ -1,13 +1,14 @@
-mod color;
-mod system;
-mod time;
+pub mod color;
+pub mod status;
+pub mod values;
 
 use chrono::prelude::*;
 use clap::Parser;
-use std::time::{Duration, Instant};
+use status::Status;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sysinfo::{Disks, System};
-use system::{available_disk_total, cpu_usage, disk_usage, memory_usage};
-use time::{date_local, time_local};
+use values::system::{available_disk_total, cpu_usage, disk_usage, memory_usage};
+use values::time::datetime_local;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -17,7 +18,7 @@ struct Args {
     format: String,
 }
 
-/// Format variants
+/// Format
 #[derive(Debug, PartialEq)]
 enum Format {
     Full,
@@ -27,40 +28,67 @@ enum Format {
 /// Runs the status command in a loop.
 /// Results are printed in a new line after about one second.
 fn run(f: Format) {
-    let mut last_check: Instant = Instant::now()
-        .checked_sub(Duration::from_secs(2))
-        .unwrap_or(Instant::now());
+    let mut last_check = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let mut disks = Disks::new_with_refreshed_list();
     let mut syst = System::new_all();
+    let mut status = Status::new();
+    let mut buf = String::new();
+    let mut line = 0;
+
+    println!("{{\"version\":1}}"); // initial lines
+    println!("[");
 
     loop {
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(Duration::from_millis(20));
 
-        if last_check.elapsed().as_micros() < 1_000_000 {
+        let check = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        if check == last_check {
             continue;
         }
 
         let local = Local::now();
 
-        let buf = match f {
+        match f {
             Format::Full => {
-                format!(
-                    "\n{} {} | {} | {} | {} {}",
-                    available_disk_total(&mut disks).unwrap_or("N/A".to_string()),
-                    disk_usage(&mut disks).unwrap_or("N/A".to_string()),
-                    cpu_usage(&mut syst),
-                    memory_usage(&mut syst),
-                    date_local(&local),
-                    time_local(&local)
-                )
+                // disk
+                let mut disk = available_disk_total(&mut disks).unwrap_or_default();
+                disk.attach_right(disk_usage(&mut disks).unwrap_or_default(), " ");
+                status.data.push(disk);
+
+                // cpu
+                status.data.push(cpu_usage(&mut syst));
+
+                // memory
+                status.data.push(memory_usage(&mut syst));
+
+                // local
+                status.data.push(datetime_local(&local));
             }
             Format::DateAndTime => {
-                format!("\n{} {}", date_local(&local), time_local(&local))
+                status.data.push(datetime_local(&local));
             }
         };
 
-        print!("{}", buf);
-        last_check = Instant::now();
+        match serde_json::to_string(&status) {
+            Ok(v) => buf = v,
+            Err(_) => {}
+        }
+
+        if line == 0 {
+            println!("{}", buf);
+        } else {
+            println!(",{}", buf);
+        }
+
+        last_check = check;
+        status.data.clear();
+        line += 1;
     }
 }
 
