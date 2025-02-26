@@ -91,7 +91,11 @@ pub fn cpu_usage(sys: &mut System) -> StatusData {
         name: "cpu_usage".to_string(),
         color: None,
         markup: Markup::Pango,
-        full_text: colorize_range(format!("{: >4.1}%", usage).as_str(), usage, (0.1, 0.3)),
+        full_text: colorize_range(
+            format!("{: >4.1}%", usage).as_str(),
+            100.0 - usage,
+            (10.0, 30.0),
+        ),
     }
 }
 
