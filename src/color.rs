@@ -26,9 +26,9 @@ where
     F: Fn(C) -> Color,
 {
     match f(v) {
-        Color::Clear => format!("<span foreground=\"#EBDBB2\">{}</span>", s),
-        Color::Yellow => format!("<span foreground=\"#FAC149\">{}</span>", s),
-        Color::Red => format!("<span foreground=\"#FB5245\">{}</span>", s),
+        Color::Clear => format!("<span foreground=\"#E2CEAD\">{}</span>", s),
+        Color::Yellow => format!("<span foreground=\"#DD9C55\">{}</span>", s),
+        Color::Red => format!("<span foreground=\"#AD4549\">{}</span>", s),
     }
 }
 
