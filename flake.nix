@@ -17,5 +17,14 @@
         cargoLock.lockFile = ./Cargo.lock;
         src = pkgs.lib.cleanSource ./.;
       };
+
+      devShells."x86_64-linux".default = pkgs.mkShell {
+        name = "ae-st-dev";
+        packages = with pkgs; [
+          rustup
+          rustc
+          cargo
+        ];
+      };
     };
 }
